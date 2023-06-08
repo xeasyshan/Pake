@@ -41,6 +41,7 @@ program
     DEFAULT_PAKE_OPTIONS.targets
   )
   .option('--debug', 'debug', DEFAULT_PAKE_OPTIONS.transparent)
+  .option('--scripts <string>', 'external patch scripts for this app', DEFAULT_PAKE_OPTIONS.scripts)
   .action(async (url: string, options: PakeCliOptions) => {
     checkUpdateTips();
 

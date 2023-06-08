@@ -7,6 +7,7 @@ import {TauriConfig} from 'tauri/src/types';
 
 import { npmDirectory } from '@/utils/dir.js';
 import logger from '@/options/logger.js';
+import combineExternalScripts from '@/helpers/scripts.js';
 
 type DangerousRemoteDomainIpAccess = {
   domain: string;
@@ -64,6 +65,7 @@ export async function mergeTauriConfig(
     iterCopyFile,
     identifier,
     name,
+    scripts,
   } = options;
 
   const tauriConfWindowOptions = {
@@ -297,6 +299,12 @@ export async function mergeTauriConfig(
 
   // 设置安全调用 window.__TAURI__ 的安全域名为设置的应用域名
   setSecurityConfigWithUrl(tauriConf, url);
+  // 注入外部 js
+  if (scripts) {
+    const files = scripts.split(',').map(relativePath => path.join(process.cwd(), relativePath));
+    combineExternalScripts(files);
+    tauriConf.pake.externalScripts = files;
+  }
 
   // 保存配置文件
   let configPath = "";

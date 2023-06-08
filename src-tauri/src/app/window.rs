@@ -1,6 +1,7 @@
 use crate::app::config::PakeConfig;
-use std::path::PathBuf;
+use std::{path::{ PathBuf}, env};
 use tauri::{App, Window, WindowBuilder, WindowUrl};
+use std::fs;
 
 #[cfg(target_os = "macos")]
 use tauri::TitleBarStyle;
@@ -39,6 +40,18 @@ pub fn get_window(app: &mut App, config: PakeConfig, _data_dir: PathBuf) -> Wind
             TitleBarStyle::Visible
         };
         window_builder = window_builder.title_bar_style(title_bar_style)
+    }
+
+    let current_dir = env::current_dir().unwrap();
+    let dynamic_path = PathBuf::from("src/inject/dynamic.js");
+    let absolute_path = current_dir.join(dynamic_path);
+    match fs::metadata(&absolute_path) {
+        Ok(metadata) => {
+            if metadata.is_file() {
+                window_builder = window_builder.initialization_script(include_str!("../inject/dynamic.js"));
+            }
+        }
+        Err(_) => {}
     }
 
     #[cfg(not(target_os = "macos"))]

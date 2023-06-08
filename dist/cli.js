@@ -9,7 +9,6 @@ import path from 'path';
 import fs$1 from 'fs/promises';
 import fs2 from 'fs-extra';
 import chalk from 'chalk';
-import URL from 'node:url';
 import crypto from 'crypto';
 import axios from 'axios';
 import { fileTypeFromBuffer } from 'file-type';
@@ -35,6 +34,8 @@ LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
 OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 PERFORMANCE OF THIS SOFTWARE.
 ***************************************************************************** */
+/* global Reflect, Promise */
+
 
 function __awaiter(thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
@@ -61,6 +62,7 @@ const DEFAULT_PAKE_OPTIONS = {
     iterCopyFile: false,
     systemTrayIcon: '',
     debug: false,
+    scripts: '',
 };
 
 const tlds = [
@@ -1629,6 +1631,15 @@ const logger = {
     }
 };
 
+function combineExternalScripts(files) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const output = path.join(npmDirectory, 'src-tauri/src/inject/dynamic.js');
+        const contents = files.map(file => fs.readFileSync(file, 'utf-8'));
+        fs.writeFileSync(output, contents.join('\n'));
+        return files;
+    });
+}
+
 function promptText(message, initial) {
     return __awaiter(this, void 0, void 0, function* () {
         const response = yield prompts({
@@ -1641,12 +1652,17 @@ function promptText(message, initial) {
     });
 }
 function setSecurityConfigWithUrl(tauriConfig, url) {
-    const { hostname } = URL.parse(url);
-    tauriConfig.tauri.security.dangerousRemoteDomainIpcAccess[0].domain = hostname;
+    const myURL = new URL(url);
+    const currentUrlConfig = {
+        domain: myURL.hostname,
+        windows: ["pake"],
+        enableTauriAPI: true,
+    };
+    tauriConfig.tauri.security.dangerousRemoteDomainIpcAccess = [currentUrlConfig];
 }
 function mergeTauriConfig(url, options, tauriConf) {
     return __awaiter(this, void 0, void 0, function* () {
-        const { width, height, fullscreen, transparent, resizable, userAgent, showMenu, showSystemTray, systemTrayIcon, iterCopyFile, identifier, name, } = options;
+        const { width, height, fullscreen, transparent, resizable, userAgent, showMenu, showSystemTray, systemTrayIcon, iterCopyFile, identifier, name, scripts, } = options;
         const tauriConfWindowOptions = {
             width,
             height,
@@ -1869,6 +1885,12 @@ function mergeTauriConfig(url, options, tauriConf) {
         }
         // 设置安全调用 window.__TAURI__ 的安全域名为设置的应用域名
         setSecurityConfigWithUrl(tauriConf, url);
+        // 注入外部 js
+        if (scripts) {
+            const files = scripts.split(',').map(relativePath => path.join(process.cwd(), relativePath));
+            combineExternalScripts(files);
+            tauriConf.pake.externalScripts = files;
+        }
         // 保存配置文件
         let configPath = "";
         switch (process.platform) {
@@ -2109,22 +2131,13 @@ function checkRustInstalled() {
 
 var tauri$3 = {
 	security: {
-		csp: null,
-		dangerousRemoteDomainIpcAccess: [
-			{
-				domain: "weread.qq.com",
-				windows: [
-					"pake"
-				],
-				enableTauriAPI: true
-			}
-		]
+		csp: null
 	},
 	updater: {
 		active: false
 	},
 	systemTray: {
-		iconPath: "png/icon_512.png",
+		iconPath: "png/weread_512.png",
 		iconAsTemplate: true
 	},
 	allowlist: {
@@ -2591,8 +2604,8 @@ var type = "module";
 var exports = "./dist/pake.js";
 var license = "MIT";
 var dependencies = {
-	"@tauri-apps/api": "^1.2.0",
-	"@tauri-apps/cli": "^1.2.3",
+	"@tauri-apps/api": "^1.3.0",
+	"@tauri-apps/cli": "^1.3.1",
 	axios: "^1.1.3",
 	chalk: "^5.1.2",
 	commander: "^9.4.1",
@@ -2623,6 +2636,7 @@ var devDependencies = {
 	concurrently: "^7.5.0",
 	"cross-env": "^7.0.3",
 	rollup: "^3.3.0",
+	tauri: "^0.15.0",
 	tslib: "^2.4.1",
 	typescript: "^4.9.3"
 };
@@ -2669,6 +2683,7 @@ program
     .option('-m, --multi-arch', "available for Mac only, and supports both Intel and M1", DEFAULT_PAKE_OPTIONS.multiArch)
     .option('--targets <string>', 'only for linux, default is "deb", option "appaimge" or "all"(deb & appimage)', DEFAULT_PAKE_OPTIONS.targets)
     .option('--debug', 'debug', DEFAULT_PAKE_OPTIONS.transparent)
+    .option('--scripts <string>', 'external patch scripts for this app', DEFAULT_PAKE_OPTIONS.scripts)
     .action((url, options) => __awaiter(void 0, void 0, void 0, function* () {
     checkUpdateTips();
     if (!url) {
